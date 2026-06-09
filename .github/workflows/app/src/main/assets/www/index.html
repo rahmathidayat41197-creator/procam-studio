@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProCam Studio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --gold: #D4A94A; --gold-dim: #8C6F2E; --dark: #0A0A0C; --dark2: #111116;
+    --dark3: #1A1A22; --dark4: #22222E; --mid: #2E2E3E; --light: #8A8AA0;
+    --text: #E8E8F0; --accent: #4A9EFF; --red: #FF4455; --green: #44FF88;
+    --amber: #FFAA22; --white: #F0F0FA;
+  }
+  body { background: var(--dark); color: var(--text); font-family: 'Rajdhani', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+  .topbar { width: 100%; max-width: 480px; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--dark2); border-bottom: 1px solid rgba(212,169,74,0.2); }
+  .brand { font-size: 18px; font-weight: 700; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; }
+  .top-icons { display: flex; gap: 16px; }
+  .top-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(212,169,74,0.3); border-radius: 6px; cursor: pointer; color: var(--gold); font-size: 14px; transition: all 0.2s; }
+  .top-icon:hover { background: rgba(212,169,74,0.15); }
+  .top-icon.active { background: rgba(212,169,74,0.2); border-color: var(--gold); }
+  .mode-tabs { width: 100%; max-width: 480px; display: flex; background: var(--dark2); border-bottom: 1px solid var(--mid); }
+  .tab-btn { flex: 1; padding: 10px 4px; background: none; border: none; color: var(--light); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .viewfinder-wrap { width: 100%; max-width: 480px; position: relative; background: #050508; aspect-ratio: 4/3; overflow: hidden; }
+  .viewfinder { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .vf-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .grid-lines { position: absolute; inset: 0; opacity: 0.25; }
+  .grid-lines::before, .grid-lines::after { content: ''; position: absolute; background: rgba(212,169,74,0.5); }
+  .grid-lines::before { left: 33.3%; top: 0; width: 1px; height: 100%; box-shadow: 99px 0 0 rgba(212,169,74,0.5); }
+  .grid-lines::after { top: 33.3%; left: 0; height: 1px; width: 100%; box-shadow: 0 99px 0 rgba(212,169,74,0.5); }
+  .corners { position: absolute; inset: 0; }
+  .corner { position: absolute; width: 20px; height: 20px; border-color: var(--gold); border-style: solid; }
+  .corner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+  .focus-ring { position: absolute; width: 64px; height: 64px; border: 2px solid var(--gold); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .focus-ring.visible { opacity: 1; }
+  .focus-ring::before, .focus-ring::after { content: ''; position: absolute; background: var(--gold); }
+  .focus-ring::before { width: 8px; height: 1px; top: 50%; left: -12px; }
+  .focus-ring::after { width: 1px; height: 8px; left: 50%; top: -12px; }
+  .hud-top { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(212,169,74,0.2); }
+  .hud-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--gold); letter-spacing: 0.5px; }
+  .hud-val span { color: var(--light); font-size: 10px; margin-right: 2px; }
+  .rec-indicator { position: absolute; top: 10px; left: 12px; display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; opacity: 0; transition: opacity 0.3s; }
+  .rec-indicator.visible { opacity: 1; }
+  .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1s infinite; }
+  .rec-text { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--red); letter-spacing: 2px; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .rec-timer { position: absolute; top: 10px; right: 12px; font-family: 'Share Tech Mono', monospace; font-size: 14px; color: var(--text); background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; display: none; }
+  .rec-timer.visible { display: block; }
+  .level-bar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); width: 120px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+  .level-fill { height: 100%; width: 50%; background: var(--green); border-radius: 2px; transition: width 0.1s; }
+  .zoom-badge { position: absolute; bottom: 20px; right: 12px; font-family: 'Share Tech Mono', monospace; font-size: 13px; color: var(--gold); background: rgba(0,0,0,0.6); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(212,169,74,0.3); }
+  .histogram { position: absolute; bottom: 10px; left: 12px; width: 80px; height: 40px; background: rgba(0,0,0,0.6); border-radius: 4px; overflow: hidden; border: 1px solid rgba(212,169,74,0.2); }
+  .controls-panel { width: 100%; max-width: 480px; background: var(--dark2); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .dial-row { display: flex; gap: 8px; justify-content: space-between; }
+  .dial-block { flex: 1; background: var(--dark3); border: 1px solid var(--mid); border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: all 0.2s; position: relative; }
+  .dial-block.active { border-color: var(--gold); background: rgba(212,169,74,0.05); }
+  .dial-label { font-size: 10px; color: var(--light); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .dial-value { font-family: 'Share Tech Mono', monospace; font-size: 16px; color: var(--gold); font-weight: 600; }
+  .dial-slider { display: none; position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--dark3); border: 1px solid var(--gold); border-radius: 8px; padding: 10px 12px; z-index: 10; width: 160px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+  .dial-block.active .dial-slider { display: block; }
+  .dial-slider label { font-size: 10px; color: var(--light); display: block; margin-bottom: 6px; letter-spacing: 1px; }
+  .dial-slider input[type=range] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+  .dial-slider .slider-val { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--gold); text-align: center; margin-top: 4px; }
+  .zoom-strip { display: flex; gap: 6px; justify-content: center; align-items: center; }
+  .zoom-btn { background: var(--dark3); border: 1px solid var(--mid); border-radius: 20px; padding: 5px 14px; color: var(--light); font-family: 'Share Tech Mono', monospace; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .zoom-btn.active { background: rgba(212,169,74,0.15); border-color: var(--gold); color: var(--gold); }
+  .filter-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .filter-strip::-webkit-scrollbar { display: none; }
+  .filter-pill { flex-shrink: 0; background: var(--dark3); border: 1px solid var(--mid); border-radius: 20px; padding: 5px 12px; color: var(--light); font-size: 12px; font-weight: 600; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .filter-pill.active { border-color: var(--gold); color: var(--gold); background: rgba(212,169,74,0.08); }
+  .shutter-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+  .side-btn { width: 44px; height: 44px; background: var(--dark3); border: 1px solid var(--mid); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--light); font-size: 18px; transition: all 0.2s; }
+  .shutter-outer { width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--gold); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+  .shutter-outer:hover { transform: scale(1.04); box-shadow: 0 0 20px rgba(212,169,74,0.3); }
+  .shutter-inner { width: 56px; height: 56px; background: var(--white); border-radius: 50%; transition: all 0.15s; }
+  .shutter-outer.video .shutter-inner { background: var(--red); border-radius: 8px; width: 28px; height: 28px; }
+  .shutter-outer.recording .shutter-inner { background: var(--red); border-radius: 4px; width: 22px; height: 22px; animation: pulse-rec 1s infinite; }
+  @keyframes pulse-rec { 0%,100%{box-shadow:0 0 0 0 rgba(255,68,85,0.5)} 50%{box-shadow:0 0 0 8px rgba(255,68,85,0)} }
+  .bottom-bar { width: 100%; max-width: 480px; background: var(--dark2); display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; border-top: 1px solid var(--mid); }
+  .gallery-thumb { width: 42px; height: 42px; background: var(--dark3); border-radius: 8px; border: 1px solid var(--mid); overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--light); font-size: 20px; }
+  .torch-btn { width: 42px; height: 42px; background: var(--dark3); border: 1px solid var(--mid); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--light); font-size: 20px; transition: all 0.2s; }
+  .torch-btn.on { border-color: var(--amber); color: var(--amber); background: rgba(255,170,34,0.1); }
+  .settings-panel { width: 100%; max-width: 480px; background: var(--dark2); padding: 0 16px; max-height: 0; overflow: hidden; transition: max-height 0.3s, padding 0.3s; border-bottom: 1px solid transparent; }
+  .settings-panel.open { max-height: 260px; padding: 12px 16px; border-bottom-color: var(--mid); }
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .setting-row { background: var(--dark3); border: 1px solid var(--mid); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .setting-label { font-size: 10px; color: var(--light); letter-spacing: 1.5px; text-transform: uppercase; }
+  .setting-select { background: none; border: none; color: var(--gold); font-family: 'Share Tech Mono', monospace; font-size: 14px; cursor: pointer; padding: 0; width: 100%; appearance: none; -webkit-appearance: none; }
+  .setting-select option { background: var(--dark3); color: var(--text); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; background: var(--dark3); border: 1px solid var(--mid); border-radius: 8px; padding: 10px 12px; grid-column: span 2; }
+  .toggle-label { font-size: 12px; color: var(--text); }
+  .toggle { width: 38px; height: 22px; background: var(--mid); border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s; }
+  .toggle.on { background: var(--gold); }
+  .toggle-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: transform 0.2s; }
+  .toggle.on .toggle-knob { transform: translateX(16px); }
+  .capture-flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; z-index: 999; transition: opacity 0.05s; }
+  .capture-flash.flash { opacity: 0.8; }
+  .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: var(--gold); font-family: 'Share Tech Mono', monospace; font-size: 13px; letter-spacing: 1px; padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(212,169,74,0.4); z-index: 1000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .waveform-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 32px; background: rgba(0,0,0,0.5); display: none; }
+  .waveform-bar.visible { display: block; }
+  .cam-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: radial-gradient(ellipse at center, #1A1A22 0%, #050508 100%); position: absolute; inset: 0; }
+  .cam-placeholder-icon { font-size: 48px; opacity: 0.3; }
+  .cam-placeholder-text { font-size: 13px; color: var(--light); letter-spacing: 1px; text-align: center; line-height: 1.6; }
+  .cam-request-btn { background: rgba(212,169,74,0.15); border: 1px solid var(--gold); border-radius: 20px; padding: 8px 20px; color: var(--gold); font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; margin-top: 6px; }
+  video.viewfinder { display: block; width: 100%; height: 100%; object-fit: cover; background: #000; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">ProCam</div>
+  <div class="top-icons">
+    <div class="top-icon" id="timerBtn" onclick="cycleTimer(this)">⏱</div>
+    <div class="top-icon" id="ratioBtn" onclick="cycleRatio(this)">▭</div>
+    <div class="top-icon active" id="gridBtn" onclick="toggleGrid(this)">⊞</div>
+    <div class="top-icon" id="settingsBtn" onclick="toggleSettings()">⚙</div>
+  </div>
+</div>
+<div class="mode-tabs" id="modeTabs">
+  <button class="tab-btn" onclick="setMode('photo',this)">FOTO</button>
+  <button class="tab-btn active" onclick="setMode('video',this)">VIDEO</button>
+  <button class="tab-btn" onclick="setMode('slow',this)">SLOW-MO</button>
+  <button class="tab-btn" onclick="setMode('timelapse',this)">TIMELAPSE</button>
+</div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-grid">
+    <div class="setting-row">
+      <div class="setting-label">Resolusi</div>
+      <select class="setting-select" onchange="updateRes(this.value)">
+        <option>4K UHD</option><option selected>1080p FHD</option><option>720p HD</option><option>480p SD</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Frame Rate</div>
+      <select class="setting-select" onchange="updateFps(this.value)">
+        <option>120 fps</option><option>60 fps</option><option selected>30 fps</option><option>24 fps</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Bitrate</div>
+      <select class="setting-select">
+        <option>100 Mbps</option><option selected>50 Mbps</option><option>25 Mbps</option><option>10 Mbps</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Log Profile</div>
+      <select class="setting-select">
+        <option selected>Standard</option><option>S-Log2</option><option>S-Log3</option><option>HLG</option><option>Flat</option>
+      </select>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🎙 Stereo Audio</span>
+      <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">📐 OIS Stabilization</span>
+      <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-knob"></div></div>
+    </div>
+  </div>
+</div>
+<div class="viewfinder-wrap" id="vfWrap">
+  <video class="viewfinder" id="cameraFeed" autoplay muted playsinline></video>
+  <div class="cam-placeholder" id="camPlaceholder">
+    <div class="cam-placeholder-icon">📷</div>
+    <div class="cam-placeholder-text">ProCam Studio<br>Izinkan akses kamera untuk memulai</div>
+    <button class="cam-request-btn" onclick="requestCamera()">Aktifkan Kamera</button>
+  </div>
+  <div class="vf-overlay">
+    <div class="grid-lines" id="gridLines"></div>
+    <div class="corners">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+    <div class="focus-ring" id="focusRing"></div>
+    <div class="hud-top">
+      <div class="hud-val" id="hudShutter"><span>SS</span>1/120</div>
+      <div class="hud-val" id="hudIso"><span>ISO</span>400</div>
+      <div class="hud-val" id="hudFps"><span>FPS</span>30</div>
+      <div class="hud-val" id="hudEv"><span>EV</span>±0.0</div>
+    </div>
+    <div class="rec-indicator" id="recIndicator"><div class="rec-dot"></div><div class="rec-text">REC</div></div>
+    <div class="rec-timer" id="recTimer">00:00:00</div>
+    <div class="zoom-badge" id="zoomBadge">1.0×</div>
+    <div class="level-bar"><div class="level-fill" id="levelFill"></div></div>
+    <div class="histogram"><canvas id="histCanvas" width="80" height="40"></canvas></div>
+    <div class="waveform-bar" id="waveformBar"><canvas id="waveCanvas" width="480" height="32"></canvas></div>
+  </div>
+</div>
+<div class="controls-panel">
+  <div class="dial-row">
+    <div class="dial-block" id="dialSS" onclick="toggleDial('dialSS')">
+      <div class="dial-label">SS</div><div class="dial-value" id="valSS">1/120</div>
+      <div class="dial-slider"><label>SHUTTER SPEED</label><input type="range" min="0" max="12" value="6" oninput="updateSS(this.value)"><div class="slider-val" id="sliderSSVal">1/120</div></div>
+    </div>
+    <div class="dial-block" id="dialISO" onclick="toggleDial('dialISO')">
+      <div class="dial-label">ISO</div><div class="dial-value" id="valISO">400</div>
+      <div class="dial-slider"><label>ISO SENSITIVITY</label><input type="range" min="0" max="10" value="4" oninput="updateISO(this.value)"><div class="slider-val" id="sliderISOVal">ISO 400</div></div>
+    </div>
+    <div class="dial-block" id="dialWB" onclick="toggleDial('dialWB')">
+      <div class="dial-label">WB</div><div class="dial-value" id="valWB">5500K</div>
+      <div class="dial-slider"><label>WHITE BALANCE</label><input type="range" min="2000" max="10000" step="100" value="5500" oninput="updateWB(this.value)"><div class="slider-val" id="sliderWBVal">5500K</div></div>
+    </div>
+    <div class="dial-block" id="dialEV" onclick="toggleDial('dialEV')">
+      <div class="dial-label">EV</div><div class="dial-value" id="valEV">±0.0</div>
+      <div class="dial-slider"><label>EXPOSURE COMP</label><input type="range" min="-30" max="30" value="0" oninput="updateEV(this.value)"><div class="slider-val" id="sliderEVVal">±0.0</div></div>
+    </div>
+  </div>
+  <div class="zoom-strip">
+    <button class="zoom-btn" onclick="setZoom(0.5,this)">0.5×</button>
+    <button class="zoom-btn active" onclick="setZoom(1.0,this)">1×</button>
+    <button class="zoom-btn" onclick="setZoom(2.0,this)">2×</button>
+    <button class="zoom-btn" onclick="setZoom(3.0,this)">3×</button>
+    <button class="zoom-btn" onclick="setZoom(5.0,this)">5×</button>
+  </div>
+  <div class="filter-strip">
+    <div class="filter-pill active" onclick="setFilter('none',this)">ORIGINAL</div>
+    <div class="filter-pill" onclick="setFilter('cinematic',this)">CINEMATIC</div>
+    <div class="filter-pill" onclick="setFilter('bw',this)">B&W</div>
+    <div class="filter-pill" onclick="setFilter('vivid',this)">VIVID</div>
+    <div class="filter-pill" onclick="setFilter('cool',this)">COOL TONE</div>
+    <div class="filter-pill" onclick="setFilter('warm',this)">WARM</div>
+    <div class="filter-pill" onclick="setFilter('fade',this)">FADE</div>
+    <div class="filter-pill" onclick="setFilter('teal',this)">TEAL & ORANGE</div>
+  </div>
+  <div class="shutter-row">
+    <div class="side-btn" onclick="capturePhoto()">🖼</div>
+    <div class="side-btn" onclick="flipCamera()">🔄</div>
+    <div class="shutter-outer video" id="shutterBtn" onclick="toggleRecord()">
+      <div class="shutter-inner" id="shutterInner"></div>
+    </div>
+    <div class="side-btn" onclick="toggleMode()">📸</div>
+    <div class="side-btn" onclick="showToast('Zoom')">🔍</div>
+  </div>
+</div>
+<div class="bottom-bar">
+  <div class="gallery-thumb" id="galleryThumb">🗂</div>
+  <div class="torch-btn" id="torchBtn" onclick="toggleTorch()">🔦</div>
+</div>
+<div class="capture-flash" id="captureFlash"></div>
+<div class="toast" id="toast"></div>
+<script>
+let currentMode='video',isRecording=false,recordTimer=null,recordSeconds=0;
+let cameraStream=null,torchOn=false,currentZoom=1.0,currentFilter='none';
+let videoTrack=null,mediaRecorder=null,recordedChunks=[],facingMode='environment';
+const SS_VALUES=['1/4000','1/2000','1/1000','1/500','1/250','1/120','1/60','1/30','1/15','1/8','1/4','1/2','1s'];
+const ISO_VALUES=[100,125,160,200,250,320,400,500,640,800,1600];
+async function requestCamera(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode,width:{ideal:1920},height:{ideal:1080}},audio:true});
+    cameraStream=stream; videoTrack=stream.getVideoTracks()[0];
+    const vid=document.getElementById('cameraFeed');
+    vid.srcObject=stream;
+    document.getElementById('camPlaceholder').style.display='none';
+    showToast('Kamera aktif ✓'); startFakeHUD(); drawHistogram();
+  }catch(e){
+    showToast('Izin kamera diperlukan');
+    startFakeHUD(); drawHistogram();
+  }
+}
+function startFakeHUD(){
+  setInterval(()=>{
+    document.getElementById('levelFill').style.width=(45+Math.random()*10)+'%';
+    drawHistogram(); if(isRecording)drawWaveform();
+  },200);
+}
+function drawHistogram(){
+  const c=document.getElementById('histCanvas'),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,80,40); ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,0,80,40);
+  const grad=ctx.createLinearGradient(0,0,80,0);
+  grad.addColorStop(0,'#333'); grad.addColorStop(0.5,'#888'); grad.addColorStop(1,'#fff');
+  ctx.fillStyle=grad;
+  for(let i=0;i<80;i++){const h=5+Math.random()*28+(i>20&&i<65?8:0); ctx.fillRect(i,40-h,1,h);}
+}
+function drawWaveform(){
+  const c=document.getElementById('waveCanvas'),ctx=c.getContext('2d');
+  ctx.clearRect(0,0,480,32); ctx.strokeStyle='#44FF88'; ctx.lineWidth=1; ctx.beginPath();
+  for(let x=0;x<480;x++){const y=16+Math.sin(x*0.15+Date.now()*0.01)*(6+Math.random()*6); x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.stroke();
+}
+function toggleRecord(){
+  if(currentMode==='photo'){capturePhoto();return;}
+  const btn=document.getElementById('shutterBtn'),rec=document.getElementById('recIndicator');
+  const timer=document.getElementById('recTimer'),wave=document.getElementById('waveformBar');
+  isRecording=!isRecording;
+  if(isRecording){
+    if(cameraStream)startMediaRecorder();
+    btn.classList.add('recording'); rec.classList.add('visible'); timer.classList.add('visible'); wave.classList.add('visible');
+    recordSeconds=0;
+    recordTimer=setInterval(()=>{
+      recordSeconds++;
+      const h=String(Math.floor(recordSeconds/3600)).padStart(2,'0');
+      const m=String(Math.floor((recordSeconds%3600)/60)).padStart(2,'0');
+      const s=String(recordSeconds%60).padStart(2,'0');
+      timer.textContent=`${h}:${m}:${s}`;
+    },1000);
+    showToast('Merekam...');
+  }else{
+    if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+    btn.classList.remove('recording'); rec.classList.remove('visible'); timer.classList.remove('visible'); wave.classList.remove('visible');
+    clearInterval(recordTimer); showToast(`Video disimpan (${recordSeconds}s)`);
+    document.getElementById('galleryThumb').textContent='🎬';
+  }
+}
+function startMediaRecorder(){
+  try{
+    recordedChunks=[];
+    mediaRecorder=new MediaRecorder(cameraStream,{mimeType:'video/webm;codecs=vp9'});
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data);};
+    mediaRecorder.onstop=saveVideo; mediaRecorder.start(100);
+  }catch(e){}
+}
+function saveVideo(){
+  if(!recordedChunks.length)return;
+  const blob=new Blob(recordedChunks,{type:'video/webm'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`procam_${Date.now()}.webm`; a.click();
+}
+function capturePhoto(){
+  const flash=document.getElementById('captureFlash');
+  flash.classList.add('flash'); setTimeout(()=>flash.classList.remove('flash'),200);
+  if(cameraStream){
+    const vid=document.getElementById('cameraFeed');
+    const canvas=document.createElement('canvas');
+    canvas.width=vid.videoWidth||1920; canvas.height=vid.videoHeight||1080;
+    canvas.getContext('2d').drawImage(vid,0,0);
+    canvas.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=`procam_${Date.now()}.jpg`; a.click();
+      document.getElementById('galleryThumb').innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover;">`;
+    },'image/jpeg',0.95);
+  }
+  showToast('Foto tersimpan ✓');
+}
+async function flipCamera(){
+  facingMode=facingMode==='environment'?'user':'environment';
+  if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop()); await requestCamera();}
+  showToast(facingMode==='user'?'Kamera depan':'Kamera belakang');
+}
+async function toggleTorch(){
+  const btn=document.getElementById('torchBtn'); torchOn=!torchOn; btn.classList.toggle('on',torchOn);
+  if(videoTrack&&videoTrack.getCapabilities){
+    const caps=videoTrack.getCapabilities();
+    if(caps.torch){try{await videoTrack.applyConstraints({advanced:[{torch:torchOn}]});}catch(e){}}
+  }
+  showToast(torchOn?'Flash ON':'Flash OFF');
+}
+function setMode(mode,el){
+  currentMode=mode;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active');
+  const btn=document.getElementById('shutterBtn');
+  if(mode==='photo'){btn.classList.remove('video','recording'); showToast('Mode Foto');}
+  else{btn.classList.add('video'); btn.classList.remove('recording'); showToast(`Mode ${mode.charAt(0).toUpperCase()+mode.slice(1)}`);}
+}
+function toggleMode(){
+  const tabs=document.querySelectorAll('.tab-btn');
+  const actives=[...tabs].findIndex(t=>t.classList.contains('active'));
+  const next=(actives+1)%tabs.length;
+  setMode(['photo','video','slow','timelapse'][next],tabs[next]);
+}
+function toggleDial(id){
+  document.querySelectorAll('.dial-block').forEach(d=>{if(d.id!==id)d.classList.remove('active');});
+  document.getElementById(id).classList.toggle('active');
+}
+function updateSS(v){const val=SS_VALUES[parseInt(v)]; document.getElementById('valSS').textContent=val; document.getElementById('sliderSSVal').textContent=val; document.getElementById('hudShutter').innerHTML=`<span>SS</span>${val}`;}
+function updateISO(v){const val=ISO_VALUES[parseInt(v)]; document.getElementById('valISO').textContent=val; document.getElementById('sliderISOVal').textContent='ISO '+val; document.getElementById('hudIso').innerHTML=`<span>ISO</span>${val}`;}
+function updateWB(v){document.getElementById('valWB').textContent=v+'K'; document.getElementById('sliderWBVal').textContent=v+'K';}
+function updateEV(v){
+  const ev=(v/10).toFixed(1),label=v==0?'±0.0':(v>0?'+'+ev:ev);
+  document.getElementById('valEV').textContent=label; document.getElementById('sliderEVVal').textContent=label;
+  document.getElementById('hudEv').innerHTML=`<span>EV</span>${label}`;
+  document.getElementById('cameraFeed').style.filter=buildFilter();
+}
+function updateRes(v){showToast('Resolusi: '+v);}
+function updateFps(v){const fps=v.split(' ')[0]; document.getElementById('hudFps').innerHTML=`<span>FPS</span>${fps}`; showToast('Frame rate: '+v);}
+function setZoom(z,el){
+  currentZoom=z; document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active');
+  document.getElementById('zoomBadge').textContent=z+'×';
+  const vid=document.getElementById('cameraFeed');
+  vid.style.transform=z>1?`scale(${1+(z-1)*0.15})`:'scale(1)';
+}
+function setFilter(f,el){
+  currentFilter=f; document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active')); el.classList.add('active');
+  document.getElementById('cameraFeed').style.filter=buildFilter();
+  showToast(f==='none'?'Original':f.toUpperCase());
+}
+function buildFilter(){
+  const evSlider=document.querySelector('#dialEV input');
+  const ev=evSlider?parseFloat(evSlider.value)/30:0, bright=1+ev*0.5, base=`brightness(${bright})`;
+  const filters={none:base,cinematic:`${base} contrast(1.15) saturate(0.85) sepia(0.15)`,bw:`${base} grayscale(1) contrast(1.1)`,vivid:`${base} saturate(1.6) contrast(1.1)`,cool:`${base} hue-rotate(20deg) saturate(1.1)`,warm:`${base} hue-rotate(-15deg) saturate(1.2) sepia(0.2)`,fade:`${base} brightness(${bright+0.15}) contrast(0.85) saturate(0.8)`,teal:`${base} contrast(1.1) saturate(1.2) hue-rotate(5deg)`};
+  return filters[currentFilter]||base;
+}
+function toggleGrid(el){el.classList.toggle('active'); document.getElementById('gridLines').style.opacity=el.classList.contains('active')?'0.25':'0';}
+function cycleTimer(el){const timers=['⏱','3s','10s','∞'],cur=timers.indexOf(el.textContent); el.textContent=timers[(cur+1)%timers.length]; el.classList.toggle('active',el.textContent!=='⏱'); showToast('Timer: '+el.textContent);}
+function cycleRatio(el){const ratios=[['▭','4:3'],['⬜','1:1'],['▬','16:9'],['▯','9:16']],cur=ratios.findIndex(r=>r[0]===el.textContent),next=ratios[(cur+1)%ratios.length]; el.textContent=next[0]; el.classList.add('active'); showToast('Rasio: '+next[1]);}
+function toggleSettings(){const p=document.getElementById('settingsPanel'),b=document.getElementById('settingsBtn'); p.classList.toggle('open'); b.classList.toggle('active');}
+function showToast(msg){const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800);}
+document.getElementById('vfWrap').addEventListener('click',function(e){
+  const ring=document.getElementById('focusRing'),rect=this.getBoundingClientRect();
+  ring.style.left=(e.clientX-rect.left)+'px'; ring.style.top=(e.clientY-rect.top)+'px';
+  ring.style.transform='translate(-50%, -50%) scale(1.5)'; ring.classList.add('visible');
+  setTimeout(()=>{ring.style.transform='translate(-50%, -50%) scale(1)';},150);
+  setTimeout(()=>ring.classList.remove('visible'),1200);
+});
+window.onload=()=>{setTimeout(requestCamera,400);};
+</script>
+</body>
+</html>
